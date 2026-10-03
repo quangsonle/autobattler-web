@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>2D Autobattler Web Arena</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Login / Gating Overlay -->
+  <div id="login-modal" class="modal">
+    <div class="modal-box">
+      <h2>2D AUTOBATTLER ARENA</h2>
+      <p class="subtitle">Online 2-Player Dueling Portal</p>
+      
+      <div class="input-group">
+        <label>Your Name</label>
+        <input type="text" id="username" placeholder="e.g. Alice" maxlength="12">
+      </div>
+
+      <div class="input-group">
+        <label>Room Password</label>
+        <input type="password" id="password" placeholder="Enter password">
+      </div>
+
+      <div class="input-group">
+        <label>Server WebSocket URL</label>
+        <input type="text" id="server-url" value="ws://localhost:8000/ws">
+        <small>Change this to your wss://render-app-url/ws when deployed</small>
+      </div>
+
+      <button id="btn-login" onclick="connect()">Enter Arena</button>
+      <div id="login-error" class="error-msg"></div>
+    </div>
+  </div>
+
+  <!-- Game Interface -->
+  <div id="app" class="hidden">
+    <div class="main-container">
+      <!-- Arena Canvas -->
+      <canvas id="arena" width="280" height="720"></canvas>
+
+      <!-- HUD Side Panel -->
+      <div class="hud">
+        <h2>ONLINE ARENA</h2>
+        <hr>
+        
+        <div class="player-card">
+          <div class="player-title color-a" id="hud-a-name">Player A: Waiting...</div>
+          <div class="score" id="hud-a-score">Score: 0</div>
+        </div>
+
+        <div class="player-card">
+          <div class="player-title color-b" id="hud-b-name">Player B: Waiting...</div>
+          <div class="score" id="hud-b-score">Score: 0</div>
+        </div>
+        <hr>
+
+        <div id="match-status" class="status-box">Connecting...</div>
+
+        <button id="btn-ready" class="action-btn" onclick="sendReady()">I am Ready!</button>
+        <button id="btn-logout" class="action-btn logout" onclick="logout()">Log Out</button>
+
+        <div class="instructions">
+          <strong>CONTROLS:</strong><br>
+          Movement: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
+          Auto-shoots straight forward on cooldown!
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
