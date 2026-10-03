@@ -30,7 +30,7 @@
       background: #1c222c;
       padding: 35px;
       border-radius: 10px;
-      width: 360px;
+      width: 380px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       text-align: center;
     }
@@ -57,7 +57,7 @@
       border: 1px solid #354254;
       border-radius: 5px;
       color: #fff;
-      font-size: 14px;
+      font-size: 13px;
     }
 
     button {
@@ -98,7 +98,7 @@
     }
 
     .player-card { margin-bottom: 12px; }
-    .player-title { font-weight: bold; font-size: 17px; }
+    .player-title { font-weight: bold; font-size: 16px; }
     .color-a { color: #00d2ff; }
     .color-b { color: #ff4b4b; }
     .score { font-size: 22px; font-weight: bold; margin-top: 4px; }
@@ -172,6 +172,7 @@
 </head>
 <body>
 
+  <!-- Login Modal -->
   <div id="login-modal" class="modal">
     <div class="modal-box">
       <h2>2D AUTOBATTLER ARENA</h2>
@@ -197,6 +198,7 @@
     </div>
   </div>
 
+  <!-- Game Interface -->
   <div id="app" class="hidden">
     <div class="main-container">
       <canvas id="arena" width="280" height="720"></canvas>
@@ -235,7 +237,7 @@
         <div class="instructions">
           <strong>CONTROLS:</strong><br>
           Move: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
-          Auto-shoots straight on cooldown!
+          Auto-shoots straight forward on cooldown!
         </div>
       </div>
     </div>
@@ -285,7 +287,7 @@
       const serverUrl = document.getElementById("server-url").value.trim();
       const errorDiv = document.getElementById("login-error");
 
-      errorDiv.innerText = "Connecting to server...";
+      errorDiv.innerText = "Connecting to Render server (may take ~50s if waking up)...";
 
       try {
         ws = new WebSocket(serverUrl);
@@ -333,7 +335,7 @@
 
       ws.onclose = () => {
         if (heartbeatInterval) clearInterval(heartbeatInterval);
-        document.getElementById("match-status").innerText = "Disconnected from server. Check server.py.";
+        document.getElementById("match-status").innerText = "Disconnected from server. Check Render logs.";
         document.getElementById("match-status").style.color = "#ff4b4b";
       };
     }
@@ -345,7 +347,7 @@
       if (!models || models.length === 0) {
         const opt = document.createElement("option");
         opt.value = "";
-        opt.innerText = "No models found in saved_models/";
+        opt.innerText = "No models on server. Push .pt files to git.";
         select.appendChild(opt);
         return;
       }
@@ -365,7 +367,6 @@
       }
     }
 
-    // DIRECT BINARY UPLOAD VIA QUERY PARAM (NO CORS HEADER BLOCKING!)
     async function uploadLocalModel(input) {
       const file = input.files[0];
       if (!file) return;
