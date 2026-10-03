@@ -217,13 +217,13 @@
         <hr style="border-color:#232a36; margin-bottom:15px;">
 
         <div class="control-section">
-          <label>Opponent AI Model:</label>
+          <label>Choose AI Model to Fight:</label>
           <select id="model-select" onchange="onModelSelected()">
-            <option value="">Upload or select a model...</option>
+            <option value="">Searching saved models...</option>
           </select>
 
           <input type="file" id="file-uploader" accept=".pt" style="display:none" onchange="uploadLocalModel(this)">
-          <button class="upload-btn" onclick="document.getElementById('file-uploader').click()">📁 Upload .pt Model from PC</button>
+          <button class="upload-btn" onclick="document.getElementById('file-uploader').click()">📁 Upload Another .pt Model</button>
         </div>
 
         <div id="match-status" class="status-box">Connecting to server...</div>
@@ -235,7 +235,7 @@
         <div class="instructions">
           <strong>CONTROLS:</strong><br>
           Move: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
-          Auto-shoots straight forward on cooldown!
+          Auto-shoots straight on cooldown!
         </div>
       </div>
     </div>
@@ -312,6 +312,7 @@
           document.getElementById("app").classList.remove("hidden");
           document.getElementById("hud-a-name").innerText = `Player A (You): ${data.username}`;
           updateModelDropdown(data.models, data.selected_model);
+          document.getElementById("hud-b-name").innerText = `Player B (Model): ${data.selected_model}`;
           document.getElementById("match-status").innerText = "Model Ready! Click Start Match below.";
           document.getElementById("match-status").style.color = "#3cc878";
           drawInitialArena();
@@ -321,6 +322,7 @@
         }
         else if (data.type === "models_updated") {
           updateModelDropdown(data.models, data.selected_model);
+          document.getElementById("hud-b-name").innerText = `Player B (Model): ${data.selected_model}`;
           document.getElementById("match-status").innerText = `Model Ready: ${data.selected_model}`;
           document.getElementById("match-status").style.color = "#3cc878";
         }
@@ -340,17 +342,17 @@
       const select = document.getElementById("model-select");
       if (!select) return;
       select.innerHTML = "";
-      if (models.length === 0) {
+      if (!models || models.length === 0) {
         const opt = document.createElement("option");
         opt.value = "";
-        opt.innerText = "Upload a .pt model below...";
+        opt.innerText = "No models found in saved_models/";
         select.appendChild(opt);
         return;
       }
       for (const m of models) {
         const opt = document.createElement("option");
         opt.value = m;
-        opt.innerText = m;
+        opt.textContent = m;
         if (m === selectedModel) opt.selected = true;
         select.appendChild(opt);
       }
@@ -363,7 +365,7 @@
       }
     }
 
-    // FAST DIRECT BINARY HTTP UPLOAD (No 128KB WebSocket Limit!)
+    // DIRECT BINARY UPLOAD VIA QUERY PARAM (NO CORS HEADER BLOCKING!)
     async function uploadLocalModel(input) {
       const file = input.files[0];
       if (!file) return;
@@ -374,22 +376,25 @@
 
       try {
         const serverUrl = document.getElementById("server-url").value.trim();
-        const httpUrl = serverUrl.replace("wss://", "https://").replace("ws://", "http://").replace("/ws", "");
+        const httpUrl = serverUrl.replace("wss://", "https://").replace("ws://", "http://").replace(/\/ws\/?$/, "");
 
-        const response = await fetch(`${httpUrl}/api/upload_model`, {
+        const uploadUrl = `${httpUrl}/api/upload_model?filename=${encodeURIComponent(file.name)}`;
+
+        const response = await fetch(uploadUrl, {
           method: "POST",
-          headers: {
-            "X-Filename": file.name
-          },
           body: file
         });
 
-        if (!response.ok) throw new Error("Upload failed on server.");
+        if (!response.ok) {
+          const errDetail = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errDetail || response.statusText}`);
+        }
 
         const resData = await response.json();
         updateModelDropdown(resData.models, resData.filename);
         statusDiv.innerText = `✔ ${file.name} Uploaded & Loaded!`;
         statusDiv.style.color = "#3cc878";
+        document.getElementById("hud-b-name").innerText = `Player B (Model): ${resData.filename}`;
       } catch (err) {
         statusDiv.innerText = `Upload Error: ${err.message}`;
         statusDiv.style.color = "#ff4b4b";
