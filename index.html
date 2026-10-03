@@ -10,7 +10,7 @@
   <div id="login-modal" class="modal">
     <div class="modal-box">
       <h2>2D AUTOBATTLER ARENA</h2>
-      <p class="subtitle">Online 2-Player Dueling Portal</p>
+      <p class="subtitle">Online Dueling & AI Testing</p>
       
       <div class="input-group">
         <label>Your Name</label>
@@ -19,13 +19,12 @@
 
       <div class="input-group">
         <label>Room Password</label>
-        <input type="password" id="password" placeholder="Enter password">
+        <input type="password" id="password" placeholder="Enter room password">
       </div>
 
       <div class="input-group">
         <label>Server WebSocket URL</label>
         <input type="text" id="server-url" value="wss://autobattler-backend.onrender.com/ws">
-        <small>Change this to your wss://render-app-url/ws when deployed</small>
       </div>
 
       <button id="btn-login" onclick="connect()">Enter Arena</button>
@@ -33,37 +32,48 @@
     </div>
   </div>
 
-  <!-- Game Interface -->
+  <!-- Main Game Interface -->
   <div id="app" class="hidden">
     <div class="main-container">
-      <!-- Arena Canvas -->
       <canvas id="arena" width="280" height="720"></canvas>
 
-      <!-- HUD Side Panel -->
       <div class="hud">
         <h2>ONLINE ARENA</h2>
         <hr>
         
         <div class="player-card">
-          <div class="player-title color-a" id="hud-a-name">Player A: Waiting...</div>
+          <div class="player-title color-a" id="hud-a-name">Player A: Loading...</div>
           <div class="score" id="hud-a-score">Score: 0</div>
         </div>
 
         <div class="player-card">
-          <div class="player-title color-b" id="hud-b-name">Player B: Waiting...</div>
+          <div class="player-title color-b" id="hud-b-name">Player B: Loading...</div>
           <div class="score" id="hud-b-score">Score: 0</div>
         </div>
         <hr>
 
-        <div id="match-status" class="status-box">Connecting...</div>
+        <!-- Model Selection Panel -->
+        <div class="control-section">
+          <label>Opponent AI Model:</label>
+          <select id="model-select" onchange="onModelSelected()">
+            <option value="Greedy AI">Greedy AI</option>
+          </select>
 
-        <button id="btn-ready" class="action-btn" onclick="sendReady()">I am Ready!</button>
+          <!-- Upload local .pt model directly from your PC -->
+          <input type="file" id="file-uploader" accept=".pt" style="display:none" onchange="uploadLocalModel(this)">
+          <button class="upload-btn" onclick="document.getElementById('file-uploader').click()">📁 Upload .pt Model from PC</button>
+        </div>
+
+        <div id="match-status" class="status-box">Select a model and start!</div>
+
+        <button id="btn-start" class="action-btn" onclick="startMatch()">▶ Start Match vs Model</button>
+        <button id="btn-stop" class="action-btn stop hidden" onclick="stopMatch()">⏹ Stop Match</button>
         <button id="btn-logout" class="action-btn logout" onclick="logout()">Log Out</button>
 
         <div class="instructions">
           <strong>CONTROLS:</strong><br>
-          Movement: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
-          Auto-shoots straight forward on cooldown!
+          Move: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
+          Auto-shoots straight on cooldown!
         </div>
       </div>
     </div>
