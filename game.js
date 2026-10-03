@@ -1,14 +1,25 @@
-const SCALE_X = 5.6; // 50 * 5.6 = 280px
-const SCALE_Y = 2.4; // 300 * 2.4 = 720px
+const SCALE_X = 5.6;
+const SCALE_Y = 2.4;
 const DEAD_ZONE_TOP = 100.0 * SCALE_Y;
 const DEAD_ZONE_HEIGHT = 100.0 * SCALE_Y;
 
 let ws = null;
 let mySlot = null;
+let heartbeatInterval = null;
 let keys = { left: false, right: false, up: false, down: false };
 
 const canvas = document.getElementById("arena");
 const ctx = canvas.getContext("2d");
+
+// Paint blank arena initially
+drawInitialArena();
+
+function drawInitialArena() {
+  ctx.fillStyle = "#0a0c10";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "#161a24";
+  ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
+}
 
 function connect() {
   const username = document.getElementById("username").value.trim() || "Player";
@@ -26,8 +37,15 @@ function connect() {
   }
 
   ws.onopen = () => {
-    // Send Auth Packet
     ws.send(JSON.stringify({ username, password }));
+    
+    // Heartbeat every 10s prevents idle timeout!
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(() => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "ping" }));
+      }
+    }, 10000);
   };
 
   ws.onmessage = (event) => {
@@ -37,7 +55,13 @@ function connect() {
       mySlot = data.slot;
       document.getElementById("login-modal").classList.add("hidden");
       document.getElementById("app").classList.remove("hidden");
-      document.getElementById("match-status").innerText = data.message;
+      
+      if (data.is_solo) {
+        document.getElementById("match-status").innerHTML = 
+          `Waiting for Player 2...<br><button onclick="startSolo()" style="margin-top:8px; background:#ffdc00; color:#000;">Play vs AI (${data.ai_name})</button>`;
+      } else {
+        document.getElementById("match-status").innerText = "Opponent found! Click Ready.";
+      }
     } 
     else if (data.type === "error") {
       errorDiv.innerText = data.message;
@@ -59,18 +83,24 @@ function connect() {
   };
 
   ws.onclose = (event) => {
-    if (event.code === 4001 || event.code === 4002 || event.code === 4003) {
-      // Reason displayed via message
-    } else {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    if (![4001, 4002, 4003].includes(event.code)) {
       document.getElementById("match-status").innerText = "Disconnected from server.";
     }
   };
 }
 
+function startSolo() {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: "start_solo" }));
+    document.getElementById("match-status").innerText = "Playing Solo vs Model!";
+  }
+}
+
 function sendReady() {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: "ready" }));
-    document.getElementById("match-status").innerText = "Waiting for opponent to ready up...";
+    document.getElementById("match-status").innerText = "Ready! Waiting for opponent...";
   }
 }
 
@@ -79,7 +109,6 @@ function logout() {
   location.reload();
 }
 
-// Key Listeners
 window.addEventListener("keydown", (e) => {
   let changed = false;
   if (["ArrowLeft", "KeyA"].includes(e.code) && !keys.left) { keys.left = true; changed = true; }
@@ -105,22 +134,21 @@ window.addEventListener("keyup", (e) => {
 });
 
 function renderState(data) {
-  // Update HUD Custom Names and Scores
   document.getElementById("hud-a-name").innerText = `Player A (Top): ${data.player_a.name}`;
   document.getElementById("hud-a-score").innerText = `Score: ${data.player_a.score}`;
 
   document.getElementById("hud-b-name").innerText = `Player B (Bottom): ${data.player_b.name}`;
   document.getElementById("hud-b-score").innerText = `Score: ${data.player_b.score}`;
 
-  // Clear Canvas
+  // Clear Arena
   ctx.fillStyle = "#0a0c10";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Draw Middle Dead Zone
+  // Dead Zone
   ctx.fillStyle = "#161a24";
   ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
 
-  // Draw Bullets (Color-coded by owner)
+  // Bullets
   for (const b of data.bullets) {
     ctx.fillStyle = (b.owner === "A") ? "#00d2ff" : "#ff4b4b";
     ctx.beginPath();
@@ -128,7 +156,7 @@ function renderState(data) {
     ctx.fill();
   }
 
-  // Draw Player A (Cyan Triangle pointing down)
+  // Player A (Cyan Triangle)
   const ax = data.player_a.x * SCALE_X;
   const ay = data.player_a.y * SCALE_Y;
   ctx.fillStyle = "#00d2ff";
@@ -139,7 +167,7 @@ function renderState(data) {
   ctx.closePath();
   ctx.fill();
 
-  // Draw Player B (Red Triangle pointing up)
+  // Player B (Red Triangle)
   const bx = data.player_b.x * SCALE_X;
   const by = data.player_b.y * SCALE_Y;
   ctx.fillStyle = "#ff4b4b";
