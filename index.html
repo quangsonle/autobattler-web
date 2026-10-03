@@ -137,19 +137,27 @@
       background: #12161c;
       padding: 10px;
       border-radius: 5px;
-      color: #3cc878;
       font-weight: bold;
       margin: 12px 0;
       font-size: 13px;
       text-align: center;
     }
 
-    .action-btn { background: #3cc878; color: #fff; margin-top: 5px; }
-    .action-btn:hover { background: #4ee08e; }
-    .duel-btn { background: #ff4b4b !important; color: #fff !important; }
+    .action-btn { margin-top: 5px; font-size: 16px; padding: 14px; }
+    .solo-btn { background: #3cc878 !important; color: #fff !important; }
+    .solo-btn:hover { background: #4ee08e !important; }
+
+    .duel-btn { background: #ff4b4b !important; color: #fff !important; animation: pulse 1.5s infinite; }
     .duel-btn:hover { background: #ff6b6b !important; }
-    .stop { background: #64748b !important; }
+
+    .stop-btn { background: #64748b !important; color: #fff !important; }
     .logout { background: #354254; color: #fff; margin-top: 8px; }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+      100% { transform: scale(1); }
+    }
 
     .instructions {
       font-size: 12px;
@@ -165,7 +173,7 @@
   <div id="login-modal" class="modal">
     <div class="modal-box">
       <h2>2D AUTOBATTLER ARENA</h2>
-      <p class="subtitle">2-Player Duel & AI Arena</p>
+      <p class="subtitle">Online 2-Player Duel & AI Arena</p>
       
       <div class="input-group">
         <label>Your Name</label>
@@ -207,29 +215,26 @@
         </div>
         <hr style="border-color:#232a36; margin-bottom:15px;">
 
-        <!-- Solo AI Selector (Only shown when 1 player is connected) -->
+        <!-- Model dropdown (shown when alone) -->
         <div id="model-section" class="control-section">
           <label>Practice Model (Solo):</label>
           <select id="model-select" onchange="onModelSelected()">
-            <option value="">Searching models...</option>
+            <option value="imitation_model2.pt">imitation_model2.pt</option>
           </select>
         </div>
 
         <div id="match-status" class="status-box">Connecting...</div>
 
-        <!-- Solo Start Button -->
-        <button id="btn-solo" class="action-btn" onclick="startSolo()">▶ Practice vs Model (Solo)</button>
-
-        <!-- 2-Player Duel Button (Shown when 2 humans are present!) -->
-        <button id="btn-duel" class="action-btn duel-btn hidden" onclick="startDuel()">⚔ Start 2-Player Duel!</button>
-
-        <button id="btn-stop" class="action-btn stop hidden" onclick="stopMatch()">⏹ Stop Match</button>
+        <!-- Dynamic Action Buttons -->
+        <button id="btn-solo" class="action-btn solo-btn" onclick="startMatch()">▶ Play vs Model (Solo)</button>
+        <button id="btn-duel" class="action-btn duel-btn hidden" onclick="startMatch()">⚔ START 2-PLAYER DUEL!</button>
+        <button id="btn-stop" class="action-btn stop-btn hidden" onclick="stopMatch()">⏹ Stop Match</button>
         <button id="btn-logout" class="action-btn logout" onclick="logout()">Log Out</button>
 
         <div class="instructions">
           <strong>CONTROLS:</strong><br>
           Move: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
-          Auto-shoots straight forward on cooldown!
+          Auto-shoots straight on cooldown!
         </div>
       </div>
     </div>
@@ -242,7 +247,6 @@
     const DEAD_ZONE_HEIGHT = 100.0 * SCALE_Y;
 
     let ws = null;
-    let mySlot = null;
     let heartbeatInterval = null;
     let keys = { left: false, right: false, up: false, down: false };
 
@@ -280,7 +284,7 @@
       const serverUrl = document.getElementById("server-url").value.trim();
       const errorDiv = document.getElementById("login-error");
 
-      errorDiv.innerText = "Connecting to Render server (takes ~50s if waking up)...";
+      errorDiv.innerText = "Connecting to server...";
 
       try {
         ws = new WebSocket(serverUrl);
@@ -296,14 +300,13 @@
           if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "ping" }));
           }
-        }, 5000);
+        }, 3000);
       };
 
       ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
 
         if (data.type === "init") {
-          mySlot = data.slot;
           document.getElementById("login-modal").classList.add("hidden");
           document.getElementById("app").classList.remove("hidden");
           updateModelDropdown(data.models, data.selected_model);
@@ -328,13 +331,6 @@
       const select = document.getElementById("model-select");
       if (!select) return;
       select.innerHTML = "";
-      if (!models || models.length === 0) {
-        const opt = document.createElement("option");
-        opt.value = "";
-        opt.innerText = "No models in saved_models/";
-        select.appendChild(opt);
-        return;
-      }
       for (const m of models) {
         const opt = document.createElement("option");
         opt.value = m;
@@ -351,19 +347,9 @@
       }
     }
 
-    function startSolo() {
+    function startMatch() {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "start_solo" }));
-        document.getElementById("btn-solo").classList.add("hidden");
-        document.getElementById("btn-stop").classList.remove("hidden");
-      }
-    }
-
-    function startDuel() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "ready_duel" }));
-        document.getElementById("btn-duel").classList.add("hidden");
-        document.getElementById("btn-stop").classList.remove("hidden");
+        ws.send(JSON.stringify({ type: "start_match" }));
       }
     }
 
@@ -371,7 +357,6 @@
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "stop_match" }));
       }
-      document.getElementById("btn-stop").classList.add("hidden");
     }
 
     function logout() {
@@ -404,17 +389,16 @@
     });
 
     function renderState(data) {
-      // Manage HUD Player Names and Score
       document.getElementById("hud-a-name").innerText = `Player A (Top): ${data.player_a.name}`;
       document.getElementById("hud-a-score").innerText = `Score: ${data.player_a.score}`;
 
-      const bPrefix = data.is_pvp ? "Player B (Bottom):" : "Player B (Model):";
-      document.getElementById("hud-b-name").innerText = `${bPrefix} ${data.player_b.name}`;
+      const bLabel = data.is_pvp ? "Player B (Bottom):" : "Player B (Model):";
+      document.getElementById("hud-b-name").innerText = `${bLabel} ${data.player_b.name}`;
       document.getElementById("hud-b-score").innerText = `Score: ${data.player_b.score}`;
 
       const statusBox = document.getElementById("match-status");
 
-      // UI MODE SWITCHING: 2-PLAYER VS SOLO
+      // DYNAMIC 2-PLAYER VS SOLO TOGGLE
       if (data.is_pvp) {
         // TWO HUMANS CONNECTED!
         document.getElementById("model-section").classList.add("hidden");
@@ -432,12 +416,12 @@
           document.getElementById("btn-stop").classList.add("hidden");
         }
       } else {
-        // ONE HUMAN CONNECTED (SOLO PRACTICE)
+        // 1 HUMAN (SOLO PRACTICE VS MODEL)
         document.getElementById("model-section").classList.remove("hidden");
         document.getElementById("btn-duel").classList.add("hidden");
 
         if (data.running) {
-          statusBox.innerText = "Solo Match vs Model in Progress!";
+          statusBox.innerText = `Match vs ${data.player_b.name} in Progress!`;
           statusBox.style.color = "#3cc878";
           document.getElementById("btn-solo").classList.add("hidden");
           document.getElementById("btn-stop").classList.remove("hidden");
