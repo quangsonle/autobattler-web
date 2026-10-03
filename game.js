@@ -1,42 +1,14 @@
-const SCALE_X = 5.6;
-const SCALE_Y = 2.4;
+const SCALE_X = 5.6; // 50 * 5.6 = 280px
+const SCALE_Y = 2.4; // 300 * 2.4 = 720px
 const DEAD_ZONE_TOP = 100.0 * SCALE_Y;
 const DEAD_ZONE_HEIGHT = 100.0 * SCALE_Y;
 
 let ws = null;
-let heartbeatInterval = null;
+let mySlot = null;
 let keys = { left: false, right: false, up: false, down: false };
 
 const canvas = document.getElementById("arena");
 const ctx = canvas.getContext("2d");
-
-// Initial render
-drawInitialArena();
-
-function drawInitialArena() {
-  ctx.fillStyle = "#0a0c10";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#161a24";
-  ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
-
-  // Player A (Cyan Top)
-  ctx.fillStyle = "#00d2ff";
-  ctx.beginPath();
-  ctx.moveTo(140, 20 * SCALE_Y + 8);
-  ctx.lineTo(140 - 8, 20 * SCALE_Y - 6);
-  ctx.lineTo(140 + 8, 20 * SCALE_Y - 6);
-  ctx.closePath();
-  ctx.fill();
-
-  // Player B (Red Bottom)
-  ctx.fillStyle = "#ff4b4b";
-  ctx.beginPath();
-  ctx.moveTo(140, 280 * SCALE_Y - 8);
-  ctx.lineTo(140 - 8, 280 * SCALE_Y + 6);
-  ctx.lineTo(140 + 8, 280 * SCALE_Y + 6);
-  ctx.closePath();
-  ctx.fill();
-}
 
 function connect() {
   const username = document.getElementById("username").value.trim() || "Player";
@@ -49,107 +21,57 @@ function connect() {
   try {
     ws = new WebSocket(serverUrl);
   } catch (e) {
-    errorDiv.innerText = "Invalid WebSocket URL.";
+    errorDiv.innerText = "Invalid WebSocket URL format.";
     return;
   }
 
   ws.onopen = () => {
+    // Send Auth Packet
     ws.send(JSON.stringify({ username, password }));
-
-    if (heartbeatInterval) clearInterval(heartbeatInterval);
-    heartbeatInterval = setInterval(() => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "ping" }));
-      }
-    }, 5000);
   };
 
   ws.onmessage = (event) => {
     const data = JSON.parse(event.data);
 
     if (data.type === "init") {
+      mySlot = data.slot;
       document.getElementById("login-modal").classList.add("hidden");
       document.getElementById("app").classList.remove("hidden");
-      document.getElementById("hud-a-name").innerText = `Player A (You): ${data.username}`;
-      
-      updateModelDropdown(data.models, data.selected_model);
-      document.getElementById("match-status").innerText = "Ready! Click Start Match below.";
+      document.getElementById("match-status").innerText = data.message;
     } 
     else if (data.type === "error") {
       errorDiv.innerText = data.message;
     }
-    else if (data.type === "models_updated") {
-      updateModelDropdown(data.models, data.selected_model);
+    else if (data.type === "waiting_ready") {
+      document.getElementById("match-status").innerText = `${data.player} is Ready! Click Ready to join.`;
+    }
+    else if (data.type === "start") {
+      document.getElementById("match-status").innerText = "Match in progress!";
+      document.getElementById("btn-ready").classList.add("hidden");
+    }
+    else if (data.type === "player_left") {
+      document.getElementById("match-status").innerText = data.message;
+      document.getElementById("btn-ready").classList.remove("hidden");
     }
     else if (data.type === "state") {
       renderState(data);
     }
   };
 
-  ws.onclose = () => {
-    if (heartbeatInterval) clearInterval(heartbeatInterval);
-    document.getElementById("match-status").innerText = "Disconnected. Refresh to rejoin.";
-  };
-}
-
-function updateModelDropdown(models, selectedModel) {
-  const select = document.getElementById("model-select");
-  if (!select) return;
-  select.innerHTML = "";
-  for (const m of models) {
-    const opt = document.createElement("option");
-    opt.value = m;
-    opt.innerText = m;
-    if (m === selectedModel) opt.selected = true;
-    select.appendChild(opt);
-  }
-}
-
-function onModelSelected() {
-  const select = document.getElementById("model-select");
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "select_model", model: select.value }));
-    document.getElementById("match-status").innerText = `Opponent set to: ${select.value}`;
-  }
-}
-
-function uploadLocalModel(input) {
-  const file = input.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const base64Data = e.target.result.split(',')[1];
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: "upload_model",
-        filename: file.name,
-        data: base64Data
-      }));
-      document.getElementById("match-status").innerText = `Uploading ${file.name}...`;
+  ws.onclose = (event) => {
+    if (event.code === 4001 || event.code === 4002 || event.code === 4003) {
+      // Reason displayed via message
+    } else {
+      document.getElementById("match-status").innerText = "Disconnected from server.";
     }
   };
-  reader.readAsDataURL(file);
 }
 
-function startMatch() {
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
-    document.getElementById("match-status").innerText = "Not connected to server.";
-    return;
-  }
-  ws.send(JSON.stringify({ type: "start_match", solo: true }));
-  document.getElementById("btn-start").classList.add("hidden");
-  document.getElementById("btn-stop").classList.remove("hidden");
-  document.getElementById("match-status").innerText = "Match in progress!";
-}
-
-function stopMatch() {
+function sendReady() {
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "stop_match" }));
+    ws.send(JSON.stringify({ type: "ready" }));
+    document.getElementById("match-status").innerText = "Waiting for opponent to ready up...";
   }
-  document.getElementById("btn-start").classList.remove("hidden");
-  document.getElementById("btn-stop").classList.add("hidden");
-  document.getElementById("match-status").innerText = "Match stopped.";
 }
 
 function logout() {
@@ -157,6 +79,7 @@ function logout() {
   location.reload();
 }
 
+// Key Listeners
 window.addEventListener("keydown", (e) => {
   let changed = false;
   if (["ArrowLeft", "KeyA"].includes(e.code) && !keys.left) { keys.left = true; changed = true; }
@@ -182,18 +105,22 @@ window.addEventListener("keyup", (e) => {
 });
 
 function renderState(data) {
-  document.getElementById("hud-a-name").innerText = `Player A (You): ${data.player_a.name}`;
+  // Update HUD Custom Names and Scores
+  document.getElementById("hud-a-name").innerText = `Player A (Top): ${data.player_a.name}`;
   document.getElementById("hud-a-score").innerText = `Score: ${data.player_a.score}`;
 
-  document.getElementById("hud-b-name").innerText = `Player B (Opponent): ${data.player_b.name}`;
+  document.getElementById("hud-b-name").innerText = `Player B (Bottom): ${data.player_b.name}`;
   document.getElementById("hud-b-score").innerText = `Score: ${data.player_b.score}`;
 
+  // Clear Canvas
   ctx.fillStyle = "#0a0c10";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // Draw Middle Dead Zone
   ctx.fillStyle = "#161a24";
   ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
 
+  // Draw Bullets (Color-coded by owner)
   for (const b of data.bullets) {
     ctx.fillStyle = (b.owner === "A") ? "#00d2ff" : "#ff4b4b";
     ctx.beginPath();
@@ -201,6 +128,7 @@ function renderState(data) {
     ctx.fill();
   }
 
+  // Draw Player A (Cyan Triangle pointing down)
   const ax = data.player_a.x * SCALE_X;
   const ay = data.player_a.y * SCALE_Y;
   ctx.fillStyle = "#00d2ff";
@@ -211,6 +139,7 @@ function renderState(data) {
   ctx.closePath();
   ctx.fill();
 
+  // Draw Player B (Red Triangle pointing up)
   const bx = data.player_b.x * SCALE_X;
   const by = data.player_b.y * SCALE_Y;
   ctx.fillStyle = "#ff4b4b";
