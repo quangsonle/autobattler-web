@@ -215,7 +215,7 @@
         </div>
         <hr style="border-color:#232a36; margin-bottom:15px;">
 
-        <!-- Model dropdown (shown when alone) -->
+        <!-- Solo AI Selector -->
         <div id="model-section" class="control-section">
           <label>Practice Model (Solo):</label>
           <select id="model-select" onchange="onModelSelected()">
@@ -225,7 +225,7 @@
 
         <div id="match-status" class="status-box">Connecting...</div>
 
-        <!-- Dynamic Action Buttons -->
+        <!-- Start & Stop Buttons -->
         <button id="btn-solo" class="action-btn solo-btn" onclick="startMatch()">▶ Play vs Model (Solo)</button>
         <button id="btn-duel" class="action-btn duel-btn hidden" onclick="startMatch()">⚔ START 2-PLAYER DUEL!</button>
         <button id="btn-stop" class="action-btn stop-btn hidden" onclick="stopMatch()">⏹ Stop Match</button>
@@ -234,7 +234,7 @@
         <div class="instructions">
           <strong>CONTROLS:</strong><br>
           Move: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
-          Auto-shoots straight on cooldown!
+          Auto-shoots straight forward on cooldown!
         </div>
       </div>
     </div>
@@ -247,6 +247,7 @@
     const DEAD_ZONE_HEIGHT = 100.0 * SCALE_Y;
 
     let ws = null;
+    let mySlot = null;
     let heartbeatInterval = null;
     let keys = { left: false, right: false, up: false, down: false };
 
@@ -307,6 +308,7 @@
         const data = JSON.parse(event.data);
 
         if (data.type === "init") {
+          mySlot = data.slot;
           document.getElementById("login-modal").classList.add("hidden");
           document.getElementById("app").classList.remove("hidden");
           updateModelDropdown(data.models, data.selected_model);
@@ -350,12 +352,17 @@
     function startMatch() {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "start_match" }));
+        document.getElementById("btn-solo").classList.add("hidden");
+        document.getElementById("btn-duel").classList.add("hidden");
+        document.getElementById("btn-stop").classList.remove("hidden");
+        document.getElementById("match-status").innerText = "Match in progress!";
       }
     }
 
     function stopMatch() {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "stop_match" }));
+        document.getElementById("btn-stop").classList.add("hidden");
       }
     }
 
@@ -416,7 +423,7 @@
           document.getElementById("btn-stop").classList.add("hidden");
         }
       } else {
-        // 1 HUMAN (SOLO PRACTICE VS MODEL)
+        // ONLY 1 HUMAN CONNECTED (SOLO PRACTICE)
         document.getElementById("model-section").classList.remove("hidden");
         document.getElementById("btn-duel").classList.add("hidden");
 
