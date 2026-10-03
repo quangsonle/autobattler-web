@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>2D Autobattler AI Arena</title>
+  <title>2D Autobattler Arena</title>
   <style>
     body {
       margin: 0;
@@ -30,12 +30,10 @@
       background: #1c222c;
       padding: 35px;
       border-radius: 10px;
-      width: 380px;
+      width: 360px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.6);
       text-align: center;
     }
-
-    .subtitle { color: #8c96a5; margin-top: -10px; margin-bottom: 25px; }
 
     .input-group {
       text-align: left;
@@ -57,7 +55,7 @@
       border: 1px solid #354254;
       border-radius: 5px;
       color: #fff;
-      font-size: 13px;
+      font-size: 14px;
     }
 
     button {
@@ -74,7 +72,7 @@
     }
 
     button:hover { background: #33dcff; }
-    .error-msg { color: #ff4b4b; margin-top: 15px; font-size: 13px; min-height: 18px; }
+    .error-msg { color: #ff4b4b; margin-top: 15px; font-size: 13px; }
     .hidden { display: none !important; }
 
     .main-container {
@@ -103,61 +101,23 @@
     .color-b { color: #ff4b4b; }
     .score { font-size: 22px; font-weight: bold; margin-top: 4px; }
 
-    .control-section {
-      background: #12161c;
-      padding: 12px;
-      border-radius: 6px;
-      margin-bottom: 12px;
-      text-align: left;
-    }
-
-    .control-section label {
-      font-size: 12px;
-      color: #8c96a5;
-      display: block;
-      margin-bottom: 6px;
-    }
-
-    #model-select {
-      width: 100%;
-      padding: 8px;
-      background: #1c222c;
-      border: 1px solid #354254;
-      color: #ffdc00;
-      border-radius: 4px;
-      font-size: 14px;
-    }
-
-    #model-select option {
-      background-color: #1c222c;
-      color: #ffdc00;
-    }
-
     .status-box {
       background: #12161c;
-      padding: 10px;
+      padding: 12px;
       border-radius: 5px;
       font-weight: bold;
-      margin: 12px 0;
+      margin: 15px 0;
       font-size: 13px;
       text-align: center;
     }
 
-    .action-btn { margin-top: 5px; font-size: 16px; padding: 14px; }
+    .action-btn { margin-top: 5px; font-size: 15px; padding: 12px; }
+    .duel-btn { background: #ff4b4b !important; color: #fff !important; }
+    .duel-btn:hover { background: #ff6b6b !important; }
     .solo-btn { background: #3cc878 !important; color: #fff !important; }
     .solo-btn:hover { background: #4ee08e !important; }
-
-    .duel-btn { background: #ff4b4b !important; color: #fff !important; animation: pulse 1.5s infinite; }
-    .duel-btn:hover { background: #ff6b6b !important; }
-
     .stop-btn { background: #64748b !important; color: #fff !important; }
     .logout { background: #354254; color: #fff; margin-top: 8px; }
-
-    @keyframes pulse {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.02); }
-      100% { transform: scale(1); }
-    }
 
     .instructions {
       font-size: 12px;
@@ -173,7 +133,7 @@
   <div id="login-modal" class="modal">
     <div class="modal-box">
       <h2>2D AUTOBATTLER ARENA</h2>
-      <p class="subtitle">Online 2-Player Duel & AI Arena</p>
+      <p style="color:#8c96a5; margin-top:-10px;">2-Player Online Duel</p>
       
       <div class="input-group">
         <label>Your Name</label>
@@ -182,11 +142,11 @@
 
       <div class="input-group">
         <label>Room Password</label>
-        <input type="password" id="password" placeholder="Enter room password">
+        <input type="password" id="password" placeholder="Enter password">
       </div>
 
       <div class="input-group">
-        <label>Server WebSocket URL</label>
+        <label>Server URL</label>
         <input type="text" id="server-url" value="wss://autobattler-backend.onrender.com/ws">
       </div>
 
@@ -215,19 +175,11 @@
         </div>
         <hr style="border-color:#232a36; margin-bottom:15px;">
 
-        <!-- Solo AI Selector -->
-        <div id="model-section" class="control-section">
-          <label>Practice Model (Solo):</label>
-          <select id="model-select" onchange="onModelSelected()">
-            <option value="imitation_model2.pt">imitation_model2.pt</option>
-          </select>
-        </div>
-
         <div id="match-status" class="status-box">Connecting...</div>
 
-        <!-- Start & Stop Buttons -->
-        <button id="btn-solo" class="action-btn solo-btn" onclick="startMatch()">▶ Play vs Model (Solo)</button>
+        <!-- Dynamic Action Buttons -->
         <button id="btn-duel" class="action-btn duel-btn hidden" onclick="startMatch()">⚔ START 2-PLAYER DUEL!</button>
+        <button id="btn-solo" class="action-btn solo-btn hidden" onclick="startMatch()">▶ Play vs Model (Solo)</button>
         <button id="btn-stop" class="action-btn stop-btn hidden" onclick="stopMatch()">⏹ Stop Match</button>
         <button id="btn-logout" class="action-btn logout" onclick="logout()">Log Out</button>
 
@@ -247,34 +199,48 @@
     const DEAD_ZONE_HEIGHT = 100.0 * SCALE_Y;
 
     let ws = null;
-    let mySlot = null;
-    let heartbeatInterval = null;
+    let heartbeat = null;
     let keys = { left: false, right: false, up: false, down: false };
 
     const canvas = document.getElementById("arena");
     const ctx = canvas.getContext("2d");
 
-    drawInitialArena();
+    drawArena(25.0, 20.0, 25.0, 280.0, []);
 
-    function drawInitialArena() {
+    function drawArena(ax, ay, bx, by, bullets) {
       ctx.fillStyle = "#0a0c10";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
       ctx.fillStyle = "#161a24";
       ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
 
+      // Bullets
+      for (const b of bullets) {
+        ctx.fillStyle = (b.owner === "A") ? "#00d2ff" : "#ff4b4b";
+        ctx.beginPath();
+        ctx.arc(b.x * SCALE_X, b.y * SCALE_Y, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Player A (Cyan Top)
+      const pxA = ax * SCALE_X;
+      const pyA = ay * SCALE_Y;
       ctx.fillStyle = "#00d2ff";
       ctx.beginPath();
-      ctx.moveTo(140, 20 * SCALE_Y + 8);
-      ctx.lineTo(140 - 8, 20 * SCALE_Y - 6);
-      ctx.lineTo(140 + 8, 20 * SCALE_Y - 6);
+      ctx.moveTo(pxA, pyA + 8);
+      ctx.lineTo(pxA - 8, pyA - 6);
+      ctx.lineTo(pxA + 8, pyA - 6);
       ctx.closePath();
       ctx.fill();
 
+      // Player B (Red Bottom)
+      const pxB = bx * SCALE_X;
+      const pyB = by * SCALE_Y;
       ctx.fillStyle = "#ff4b4b";
       ctx.beginPath();
-      ctx.moveTo(140, 280 * SCALE_Y - 8);
-      ctx.lineTo(140 - 8, 280 * SCALE_Y + 6);
-      ctx.lineTo(140 + 8, 280 * SCALE_Y + 6);
+      ctx.moveTo(pxB, pyB - 8);
+      ctx.lineTo(pxB - 8, pyB + 6);
+      ctx.lineTo(pxB + 8, pyB + 6);
       ctx.closePath();
       ctx.fill();
     }
@@ -285,7 +251,7 @@
       const serverUrl = document.getElementById("server-url").value.trim();
       const errorDiv = document.getElementById("login-error");
 
-      errorDiv.innerText = "Connecting to server...";
+      errorDiv.innerText = "Connecting...";
 
       try {
         ws = new WebSocket(serverUrl);
@@ -296,11 +262,9 @@
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ username, password }));
-        if (heartbeatInterval) clearInterval(heartbeatInterval);
-        heartbeatInterval = setInterval(() => {
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "ping" }));
-          }
+        if (heartbeat) clearInterval(heartbeat);
+        heartbeat = setInterval(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
         }, 3000);
       };
 
@@ -308,12 +272,9 @@
         const data = JSON.parse(event.data);
 
         if (data.type === "init") {
-          mySlot = data.slot;
           document.getElementById("login-modal").classList.add("hidden");
           document.getElementById("app").classList.remove("hidden");
-          updateModelDropdown(data.models, data.selected_model);
-          drawInitialArena();
-        } 
+        }
         else if (data.type === "error") {
           errorDiv.innerText = data.message;
         }
@@ -323,46 +284,21 @@
       };
 
       ws.onclose = () => {
-        if (heartbeatInterval) clearInterval(heartbeatInterval);
-        document.getElementById("match-status").innerText = "Disconnected from server. Refresh to reconnect.";
+        if (heartbeat) clearInterval(heartbeat);
+        document.getElementById("match-status").innerText = "Disconnected from server.";
         document.getElementById("match-status").style.color = "#ff4b4b";
       };
     }
 
-    function updateModelDropdown(models, selectedModel) {
-      const select = document.getElementById("model-select");
-      if (!select) return;
-      select.innerHTML = "";
-      for (const m of models) {
-        const opt = document.createElement("option");
-        opt.value = m;
-        opt.textContent = m;
-        if (m === selectedModel) opt.selected = true;
-        select.appendChild(opt);
-      }
-    }
-
-    function onModelSelected() {
-      const select = document.getElementById("model-select");
-      if (select.value && ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "select_model", model: select.value }));
-      }
-    }
-
     function startMatch() {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "start_match" }));
-        document.getElementById("btn-solo").classList.add("hidden");
-        document.getElementById("btn-duel").classList.add("hidden");
-        document.getElementById("btn-stop").classList.remove("hidden");
-        document.getElementById("match-status").innerText = "Match in progress!";
+        ws.send(JSON.stringify({ type: "start" }));
       }
     }
 
     function stopMatch() {
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "stop_match" }));
-        document.getElementById("btn-stop").classList.add("hidden");
+        ws.send(JSON.stringify({ type: "stop" }));
       }
     }
 
@@ -399,80 +335,36 @@
       document.getElementById("hud-a-name").innerText = `Player A (Top): ${data.player_a.name}`;
       document.getElementById("hud-a-score").innerText = `Score: ${data.player_a.score}`;
 
-      const bLabel = data.is_pvp ? "Player B (Bottom):" : "Player B (Model):";
-      document.getElementById("hud-b-name").innerText = `${bLabel} ${data.player_b.name}`;
+      document.getElementById("hud-b-name").innerText = `Player B (Bottom): ${data.player_b.name}`;
       document.getElementById("hud-b-score").innerText = `Score: ${data.player_b.score}`;
 
       const statusBox = document.getElementById("match-status");
+      const btnDuel = document.getElementById("btn-duel");
+      const btnSolo = document.getElementById("btn-solo");
+      const btnStop = document.getElementById("btn-stop");
 
-      // DYNAMIC 2-PLAYER VS SOLO TOGGLE
-      if (data.is_pvp) {
-        // TWO HUMANS CONNECTED!
-        document.getElementById("model-section").classList.add("hidden");
-        document.getElementById("btn-solo").classList.add("hidden");
-
-        if (data.running) {
-          statusBox.innerText = "🔥 2-Player Match in Progress!";
-          statusBox.style.color = "#ff4b4b";
-          document.getElementById("btn-duel").classList.add("hidden");
-          document.getElementById("btn-stop").classList.remove("hidden");
-        } else {
-          statusBox.innerText = `⚔ Opponent Connected (${data.player_b.name})! Ready to Fight.`;
-          statusBox.style.color = "#3cc878";
-          document.getElementById("btn-duel").classList.remove("hidden");
-          document.getElementById("btn-stop").classList.add("hidden");
-        }
+      if (data.running) {
+        statusBox.innerText = data.is_pvp ? "🔥 2-Player Match in Progress!" : "Solo Match vs Model in Progress!";
+        statusBox.style.color = "#3cc878";
+        btnDuel.classList.add("hidden");
+        btnSolo.classList.add("hidden");
+        btnStop.classList.remove("hidden");
       } else {
-        // ONLY 1 HUMAN CONNECTED (SOLO PRACTICE)
-        document.getElementById("model-section").classList.remove("hidden");
-        document.getElementById("btn-duel").classList.add("hidden");
-
-        if (data.running) {
-          statusBox.innerText = `Match vs ${data.player_b.name} in Progress!`;
-          statusBox.style.color = "#3cc878";
-          document.getElementById("btn-solo").classList.add("hidden");
-          document.getElementById("btn-stop").classList.remove("hidden");
+        btnStop.classList.add("hidden");
+        if (data.is_pvp) {
+          statusBox.innerText = "⚔ 2 Players in Room! Click Start to Duel!";
+          statusBox.style.color = "#ff4b4b";
+          btnDuel.classList.remove("hidden");
+          btnSolo.classList.add("hidden");
         } else {
-          statusBox.innerText = "Waiting for Player 2... (or practice solo below)";
+          statusBox.innerText = "Waiting for Player 2... (or play solo below)";
           statusBox.style.color = "#ffdc00";
-          document.getElementById("btn-solo").classList.remove("hidden");
-          document.getElementById("btn-stop").classList.add("hidden");
+          btnDuel.classList.add("hidden");
+          btnSolo.classList.remove("hidden");
         }
       }
 
-      // Draw Arena Canvas
-      ctx.fillStyle = "#0a0c10";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.fillStyle = "#161a24";
-      ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
-
-      for (const b of data.bullets) {
-        ctx.fillStyle = (b.owner === "A") ? "#00d2ff" : "#ff4b4b";
-        ctx.beginPath();
-        ctx.arc(b.x * SCALE_X, b.y * SCALE_Y, 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      const ax = data.player_a.x * SCALE_X;
-      const ay = data.player_a.y * SCALE_Y;
-      ctx.fillStyle = "#00d2ff";
-      ctx.beginPath();
-      ctx.moveTo(ax, ay + 8);
-      ctx.lineTo(ax - 8, ay - 6);
-      ctx.lineTo(ax + 8, ay - 6);
-      ctx.closePath();
-      ctx.fill();
-
-      const bx = data.player_b.x * SCALE_X;
-      const by = data.player_b.y * SCALE_Y;
-      ctx.fillStyle = "#ff4b4b";
-      ctx.beginPath();
-      ctx.moveTo(bx, by - 8);
-      ctx.lineTo(bx - 8, by + 6);
-      ctx.lineTo(bx + 8, by + 6);
-      ctx.closePath();
-      ctx.fill();
+      drawArena(data.player_a.x, data.player_a.y, data.player_b.x, data.player_b.y, data.bullets);
     }
   </script>
 </body>
