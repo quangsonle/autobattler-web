@@ -2,138 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>2D Autobattler Arena</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      background-color: #12161c;
-      color: #e6ebf5;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .modal {
-      position: fixed;
-      inset: 0;
-      background: rgba(10, 12, 16, 0.95);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 100;
-    }
-
-    .modal-box {
-      background: #1c222c;
-      padding: 35px;
-      border-radius: 10px;
-      width: 360px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
-      text-align: center;
-    }
-
-    .input-group {
-      text-align: left;
-      margin-bottom: 15px;
-    }
-
-    .input-group label {
-      display: block;
-      font-size: 13px;
-      color: #8c96a5;
-      margin-bottom: 5px;
-    }
-
-    .input-group input {
-      width: 100%;
-      box-sizing: border-box;
-      padding: 10px;
-      background: #12161c;
-      border: 1px solid #354254;
-      border-radius: 5px;
-      color: #fff;
-      font-size: 14px;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      border: none;
-      border-radius: 5px;
-      background: #00d2ff;
-      color: #000;
-      font-weight: bold;
-      font-size: 15px;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-
-    button:hover { background: #33dcff; }
-    .error-msg { color: #ff4b4b; margin-top: 15px; font-size: 13px; }
-    .hidden { display: none !important; }
-
-    .main-container {
-      display: flex;
-      gap: 30px;
-      align-items: flex-start;
-      padding: 20px;
-    }
-
-    #arena {
-      background: #0a0c10;
-      border: 2px solid #232a36;
-      border-radius: 4px;
-    }
-
-    .hud {
-      width: 320px;
-      background: #1c222c;
-      padding: 20px;
-      border-radius: 8px;
-    }
-
-    .player-card { margin-bottom: 12px; }
-    .player-title { font-weight: bold; font-size: 16px; }
-    .color-a { color: #00d2ff; }
-    .color-b { color: #ff4b4b; }
-    .score { font-size: 22px; font-weight: bold; margin-top: 4px; }
-
-    .status-box {
-      background: #12161c;
-      padding: 12px;
-      border-radius: 5px;
-      font-weight: bold;
-      margin: 15px 0;
-      font-size: 13px;
-      text-align: center;
-    }
-
-    .action-btn { margin-top: 5px; font-size: 15px; padding: 14px; }
-    .duel-btn { background: #ff4b4b !important; color: #fff !important; }
-    .duel-btn:hover { background: #ff6b6b !important; }
-    .solo-btn { background: #3cc878 !important; color: #fff !important; }
-    .solo-btn:hover { background: #4ee08e !important; }
-    .stop-btn { background: #64748b !important; color: #fff !important; }
-    .logout { background: #354254; color: #fff; margin-top: 8px; }
-
-    .instructions {
-      font-size: 12px;
-      color: #8c96a5;
-      margin-top: 20px;
-      line-height: 1.5;
-    }
-  </style>
+  <title>2D Autobattler Web Arena</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-  <!-- Login Modal -->
+  <!-- Login / Gating Overlay -->
   <div id="login-modal" class="modal">
     <div class="modal-box">
       <h2>2D AUTOBATTLER ARENA</h2>
-      <p style="color:#8c96a5; margin-top:-10px;">Zero-Install Online Duel</p>
+      <p class="subtitle">Online 2-Player Dueling Portal</p>
       
       <div class="input-group">
         <label>Your Name</label>
@@ -146,8 +23,9 @@
       </div>
 
       <div class="input-group">
-        <label>Server URL</label>
+        <label>Server WebSocket URL</label>
         <input type="text" id="server-url" value="wss://autobattler-backend.onrender.com/ws">
+        <small>Change this to your wss://render-app-url/ws when deployed</small>
       </div>
 
       <button id="btn-login" onclick="connect()">Enter Arena</button>
@@ -158,214 +36,39 @@
   <!-- Game Interface -->
   <div id="app" class="hidden">
     <div class="main-container">
+      <!-- Arena Canvas -->
       <canvas id="arena" width="280" height="720"></canvas>
 
+      <!-- HUD Side Panel -->
       <div class="hud">
         <h2>ONLINE ARENA</h2>
-        <hr style="border-color:#232a36; margin-bottom:15px;">
+        <hr>
         
         <div class="player-card">
-          <div class="player-title color-a" id="hud-a-name">Player A (Cyan): Loading...</div>
+          <div class="player-title color-a" id="hud-a-name">Player A: Waiting...</div>
           <div class="score" id="hud-a-score">Score: 0</div>
         </div>
 
         <div class="player-card">
-          <div class="player-title color-b" id="hud-b-name">Player B (Red): Loading...</div>
+          <div class="player-title color-b" id="hud-b-name">Player B: Waiting...</div>
           <div class="score" id="hud-b-score">Score: 0</div>
         </div>
-        <hr style="border-color:#232a36; margin-bottom:15px;">
+        <hr>
 
         <div id="match-status" class="status-box">Connecting...</div>
 
-        <!-- Dynamic Action Buttons -->
-        <button id="btn-duel" class="action-btn duel-btn hidden" onclick="startMatch()">⚔ START 2-PLAYER DUEL</button>
-        <button id="btn-solo" class="action-btn solo-btn hidden" onclick="startMatch()">▶ PLAY VS MODEL (SOLO)</button>
-        <button id="btn-stop" class="action-btn stop-btn hidden" onclick="stopMatch()">⏹ STOP MATCH</button>
+        <button id="btn-ready" class="action-btn" onclick="sendReady()">I am Ready!</button>
         <button id="btn-logout" class="action-btn logout" onclick="logout()">Log Out</button>
 
         <div class="instructions">
           <strong>CONTROLS:</strong><br>
-          Move: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
+          Movement: <code>W, A, S, D</code> or <code>Arrow Keys</code><br>
           Auto-shoots straight forward on cooldown!
         </div>
       </div>
     </div>
   </div>
 
-  <script>
-    const SCALE_X = 5.6;
-    const SCALE_Y = 2.4;
-    const DEAD_ZONE_TOP = 100.0 * SCALE_Y;
-    const DEAD_ZONE_HEIGHT = 100.0 * SCALE_Y;
-
-    let ws = null;
-    let heartbeat = null;
-    let keys = { left: false, right: false, up: false, down: false };
-
-    const canvas = document.getElementById("arena");
-    const ctx = canvas.getContext("2d");
-
-    drawArena(25.0, 20.0, 25.0, 280.0, []);
-
-    function drawArena(ax, ay, bx, by, bullets) {
-      ctx.fillStyle = "#0a0c10";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.fillStyle = "#161a24";
-      ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
-
-      // Bullets
-      for (const b of bullets) {
-        ctx.fillStyle = (b.owner === "A") ? "#00d2ff" : "#ff4b4b";
-        ctx.beginPath();
-        ctx.arc(b.x * SCALE_X, b.y * SCALE_Y, 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Player A (Cyan Top)
-      const pxA = ax * SCALE_X;
-      const pyA = ay * SCALE_Y;
-      ctx.fillStyle = "#00d2ff";
-      ctx.beginPath();
-      ctx.moveTo(pxA, pyA + 8);
-      ctx.lineTo(pxA - 8, pyA - 6);
-      ctx.lineTo(pxA + 8, pyA - 6);
-      ctx.closePath();
-      ctx.fill();
-
-      // Player B (Red Bottom)
-      const pxB = bx * SCALE_X;
-      const pyB = by * SCALE_Y;
-      ctx.fillStyle = "#ff4b4b";
-      ctx.beginPath();
-      ctx.moveTo(pxB, pyB - 8);
-      ctx.lineTo(pxB - 8, pyB + 6);
-      ctx.lineTo(pxB + 8, pyB + 6);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    function connect() {
-      const username = document.getElementById("username").value.trim() || "Player";
-      const password = document.getElementById("password").value;
-      const serverUrl = document.getElementById("server-url").value.trim();
-      const errorDiv = document.getElementById("login-error");
-
-      errorDiv.innerText = "Connecting to server...";
-
-      try {
-        ws = new WebSocket(serverUrl);
-      } catch (e) {
-        errorDiv.innerText = "Invalid WebSocket URL format.";
-        return;
-      }
-
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ username, password }));
-        if (heartbeat) clearInterval(heartbeat);
-        heartbeat = setInterval(() => {
-          if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
-        }, 3000);
-      };
-
-      ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "init") {
-          document.getElementById("login-modal").classList.add("hidden");
-          document.getElementById("app").classList.remove("hidden");
-        }
-        else if (data.type === "error") {
-          errorDiv.innerText = data.message;
-        }
-        else if (data.type === "state") {
-          renderState(data);
-        }
-      };
-
-      ws.onclose = () => {
-        if (heartbeat) clearInterval(heartbeat);
-        document.getElementById("match-status").innerText = "Disconnected from server. Refresh to reconnect.";
-        document.getElementById("match-status").style.color = "#ff4b4b";
-      };
-    }
-
-    function startMatch() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "start" }));
-      }
-    }
-
-    function stopMatch() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "stop" }));
-      }
-    }
-
-    function logout() {
-      if (ws) ws.close();
-      location.reload();
-    }
-
-    window.addEventListener("keydown", (e) => {
-      let changed = false;
-      if (["ArrowLeft", "KeyA"].includes(e.code) && !keys.left) { keys.left = true; changed = true; }
-      if (["ArrowRight", "KeyD"].includes(e.code) && !keys.right) { keys.right = true; changed = true; }
-      if (["ArrowUp", "KeyW"].includes(e.code) && !keys.up) { keys.up = true; changed = true; }
-      if (["ArrowDown", "KeyS"].includes(e.code) && !keys.down) { keys.down = true; changed = true; }
-
-      if (changed && ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "keys", ...keys }));
-      }
-    });
-
-    window.addEventListener("keyup", (e) => {
-      let changed = false;
-      if (["ArrowLeft", "KeyA"].includes(e.code) && keys.left) { keys.left = false; changed = true; }
-      if (["ArrowRight", "KeyD"].includes(e.code) && keys.right) { keys.right = false; changed = true; }
-      if (["ArrowUp", "KeyW"].includes(e.code) && keys.up) { keys.up = false; changed = true; }
-      if (["ArrowDown", "KeyS"].includes(e.code) && keys.down) { keys.down = false; changed = true; }
-
-      if (changed && ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: "keys", ...keys }));
-      }
-    });
-
-    function renderState(data) {
-      document.getElementById("hud-a-name").innerText = `Player A (Cyan): ${data.player_a.name}`;
-      document.getElementById("hud-a-score").innerText = `Score: ${data.player_a.score}`;
-
-      document.getElementById("hud-b-name").innerText = `Player B (Red): ${data.player_b.name}`;
-      document.getElementById("hud-b-score").innerText = `Score: ${data.player_b.score}`;
-
-      const statusBox = document.getElementById("match-status");
-      const btnDuel = document.getElementById("btn-duel");
-      const btnSolo = document.getElementById("btn-solo");
-      const btnStop = document.getElementById("btn-stop");
-
-      if (data.running) {
-        statusBox.innerText = data.is_pvp ? "🔥 2-Player Match in Progress!" : "Solo Practice Match in Progress!";
-        statusBox.style.color = "#3cc878";
-        btnDuel.classList.add("hidden");
-        btnSolo.classList.add("hidden");
-        btnStop.classList.remove("hidden");
-      } else {
-        btnStop.classList.add("hidden");
-        if (data.is_pvp) {
-          statusBox.innerText = `⚔ A NEW CHALLENGER JOINED! (${data.player_b.name})`;
-          statusBox.style.color = "#ff4b4b";
-          btnDuel.classList.remove("hidden");
-          btnSolo.classList.add("hidden");
-        } else {
-          statusBox.innerText = "Waiting for Player 2... (or play solo below)";
-          statusBox.style.color = "#ffdc00";
-          btnDuel.classList.add("hidden");
-          btnSolo.classList.remove("hidden");
-        }
-      }
-
-      drawArena(data.player_a.x, data.player_a.y, data.player_b.x, data.player_b.y, data.bullets);
-    }
-  </script>
+  <script src="game.js"></script>
 </body>
 </html>
