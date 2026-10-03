@@ -143,7 +143,8 @@
       background: #12161c;
       padding: 10px;
       border-radius: 5px;
-      color: #ffdc00;
+      color: #3cc878;
+      font-weight: bold;
       margin: 12px 0;
       font-size: 13px;
       text-align: center;
@@ -166,7 +167,6 @@
 </head>
 <body>
 
-  <!-- Login Modal -->
   <div id="login-modal" class="modal">
     <div class="modal-box">
       <h2>2D AUTOBATTLER ARENA</h2>
@@ -192,7 +192,6 @@
     </div>
   </div>
 
-  <!-- Main Game Interface -->
   <div id="app" class="hidden">
     <div class="main-container">
       <canvas id="arena" width="280" height="720"></canvas>
@@ -202,7 +201,7 @@
         <hr style="border-color:#232a36; margin-bottom:15px;">
         
         <div class="player-card">
-          <div class="player-title color-a" id="hud-a-name">Player A (You): Connecting...</div>
+          <div class="player-title color-a" id="hud-a-name">Player A (You): Loading...</div>
           <div class="score" id="hud-a-score">Score: 0</div>
         </div>
 
@@ -212,7 +211,6 @@
         </div>
         <hr style="border-color:#232a36; margin-bottom:15px;">
 
-        <!-- Model Picker -->
         <div class="control-section">
           <label>Opponent AI Model:</label>
           <select id="model-select" onchange="onModelSelected()">
@@ -223,7 +221,7 @@
           <button class="upload-btn" onclick="document.getElementById('file-uploader').click()">📁 Upload .pt Model from PC</button>
         </div>
 
-        <div id="match-status" class="status-box">Connecting to server...</div>
+        <div id="match-status" class="status-box">Model Ready! Click Start Match below.</div>
 
         <button id="btn-start" class="action-btn" onclick="startMatch()">▶ Start Match vs Model</button>
         <button id="btn-stop" class="action-btn stop hidden" onclick="stopMatch()">⏹ Stop Match</button>
@@ -259,7 +257,6 @@
       ctx.fillStyle = "#161a24";
       ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
 
-      // Player A (Cyan)
       ctx.fillStyle = "#00d2ff";
       ctx.beginPath();
       ctx.moveTo(140, 20 * SCALE_Y + 8);
@@ -268,7 +265,6 @@
       ctx.closePath();
       ctx.fill();
 
-      // Player B (Red)
       ctx.fillStyle = "#ff4b4b";
       ctx.beginPath();
       ctx.moveTo(140, 280 * SCALE_Y - 8);
@@ -284,7 +280,7 @@
       const serverUrl = document.getElementById("server-url").value.trim();
       const errorDiv = document.getElementById("login-error");
 
-      errorDiv.innerText = "Connecting to server...";
+      errorDiv.innerText = "Connecting...";
 
       try {
         ws = new WebSocket(serverUrl);
@@ -311,14 +307,20 @@
           document.getElementById("app").classList.remove("hidden");
           document.getElementById("hud-a-name").innerText = `Player A (You): ${data.username}`;
           updateModelDropdown(data.models, data.selected_model);
-          document.getElementById("match-status").innerText = "Ready! Click Start Match below.";
+          document.getElementById("match-status").innerText = "Model Ready! Click Start Match below.";
           drawInitialArena();
         } 
         else if (data.type === "error") {
           errorDiv.innerText = data.message;
         }
-        else if (data.type === "models_updated") {
+        else if (data.type === "model_ready") {
+          document.getElementById("match-status").innerText = `✔ ${data.message}`;
+          document.getElementById("match-status").style.color = "#3cc878";
+        }
+        else if (data.type === "upload_success") {
           updateModelDropdown(data.models, data.selected_model);
+          document.getElementById("match-status").innerText = `✔ ${data.message}`;
+          document.getElementById("match-status").style.color = "#3cc878";
         }
         else if (data.type === "state") {
           renderState(data);
@@ -327,7 +329,8 @@
 
       ws.onclose = () => {
         if (heartbeatInterval) clearInterval(heartbeatInterval);
-        document.getElementById("match-status").innerText = "Disconnected from server. Check server.py.";
+        document.getElementById("match-status").innerText = "Disconnected from server.";
+        document.getElementById("match-status").style.color = "#ff4b4b";
       };
     }
 
@@ -348,7 +351,6 @@
       const select = document.getElementById("model-select");
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: "select_model", model: select.value }));
-        document.getElementById("match-status").innerText = `Opponent set to: ${select.value}`;
       }
     }
 
@@ -366,14 +368,16 @@
             data: base64Data
           }));
           document.getElementById("match-status").innerText = `Uploading ${file.name}...`;
+          document.getElementById("match-status").style.color = "#ffdc00";
         }
       };
       reader.readAsDataURL(file);
+      input.value = ""; // Reset so same file can be re-uploaded if needed
     }
 
     function startMatch() {
       if (!ws || ws.readyState !== WebSocket.OPEN) {
-        document.getElementById("match-status").innerText = "Not connected to server. Run server.py!";
+        document.getElementById("match-status").innerText = "Not connected to server.";
         return;
       }
       ws.send(JSON.stringify({ type: "start_match", solo: true }));
@@ -424,7 +428,7 @@
       document.getElementById("hud-a-name").innerText = `Player A (You): ${data.player_a.name}`;
       document.getElementById("hud-a-score").innerText = `Score: ${data.player_a.score}`;
 
-      document.getElementById("hud-b-name").innerText = `Player B: ${data.player_b.name}`;
+      document.getElementById("hud-b-name").innerText = `Player B (Opponent): ${data.player_b.name}`;
       document.getElementById("hud-b-score").innerText = `Score: ${data.player_b.score}`;
 
       ctx.fillStyle = "#0a0c10";
