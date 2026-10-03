@@ -10,7 +10,7 @@ let keys = { left: false, right: false, up: false, down: false };
 const canvas = document.getElementById("arena");
 const ctx = canvas.getContext("2d");
 
-// Pre-paint initial arena
+// Initial render
 drawInitialArena();
 
 function drawInitialArena() {
@@ -19,7 +19,7 @@ function drawInitialArena() {
   ctx.fillStyle = "#161a24";
   ctx.fillRect(0, DEAD_ZONE_TOP, canvas.width, DEAD_ZONE_HEIGHT);
 
-  // Initial Player A (Cyan Top)
+  // Player A (Cyan Top)
   ctx.fillStyle = "#00d2ff";
   ctx.beginPath();
   ctx.moveTo(140, 20 * SCALE_Y + 8);
@@ -28,7 +28,7 @@ function drawInitialArena() {
   ctx.closePath();
   ctx.fill();
 
-  // Initial Player B (Red Bottom)
+  // Player B (Red Bottom)
   ctx.fillStyle = "#ff4b4b";
   ctx.beginPath();
   ctx.moveTo(140, 280 * SCALE_Y - 8);
@@ -73,7 +73,7 @@ function connect() {
       document.getElementById("hud-a-name").innerText = `Player A (You): ${data.username}`;
       
       updateModelDropdown(data.models, data.selected_model);
-      document.getElementById("match-status").innerText = "Ready! Choose a model and click Start.";
+      document.getElementById("match-status").innerText = "Ready! Click Start Match below.";
     } 
     else if (data.type === "error") {
       errorDiv.innerText = data.message;
@@ -86,16 +86,15 @@ function connect() {
     }
   };
 
-  ws.onclose = (event) => {
+  ws.onclose = () => {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
-    if (![4001, 4002, 4003].includes(event.code)) {
-      document.getElementById("match-status").innerText = "Disconnected from server.";
-    }
+    document.getElementById("match-status").innerText = "Disconnected. Refresh to rejoin.";
   };
 }
 
 function updateModelDropdown(models, selectedModel) {
   const select = document.getElementById("model-select");
+  if (!select) return;
   select.innerHTML = "";
   for (const m of models) {
     const opt = document.createElement("option");
@@ -110,7 +109,7 @@ function onModelSelected() {
   const select = document.getElementById("model-select");
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: "select_model", model: select.value }));
-    document.getElementById("match-status").innerText = `Loaded model: ${select.value}`;
+    document.getElementById("match-status").innerText = `Opponent set to: ${select.value}`;
   }
 }
 
@@ -134,21 +133,23 @@ function uploadLocalModel(input) {
 }
 
 function startMatch() {
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "start_match", solo: true }));
-    document.getElementById("btn-start").classList.add("hidden");
-    document.getElementById("btn-stop").classList.remove("hidden");
-    document.getElementById("match-status").innerText = "Match in progress!";
+  if (!ws || ws.readyState !== WebSocket.OPEN) {
+    document.getElementById("match-status").innerText = "Not connected to server.";
+    return;
   }
+  ws.send(JSON.stringify({ type: "start_match", solo: true }));
+  document.getElementById("btn-start").classList.add("hidden");
+  document.getElementById("btn-stop").classList.remove("hidden");
+  document.getElementById("match-status").innerText = "Match in progress!";
 }
 
 function stopMatch() {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({ type: "stop_match" }));
-    document.getElementById("btn-start").classList.remove("hidden");
-    document.getElementById("btn-stop").classList.add("hidden");
-    document.getElementById("match-status").innerText = "Match stopped.";
   }
+  document.getElementById("btn-start").classList.remove("hidden");
+  document.getElementById("btn-stop").classList.add("hidden");
+  document.getElementById("match-status").innerText = "Match stopped.";
 }
 
 function logout() {
@@ -181,10 +182,10 @@ window.addEventListener("keyup", (e) => {
 });
 
 function renderState(data) {
-  document.getElementById("hud-a-name").innerText = `Player A: ${data.player_a.name}`;
+  document.getElementById("hud-a-name").innerText = `Player A (You): ${data.player_a.name}`;
   document.getElementById("hud-a-score").innerText = `Score: ${data.player_a.score}`;
 
-  document.getElementById("hud-b-name").innerText = `Player B: ${data.player_b.name}`;
+  document.getElementById("hud-b-name").innerText = `Player B (Opponent): ${data.player_b.name}`;
   document.getElementById("hud-b-score").innerText = `Score: ${data.player_b.score}`;
 
   ctx.fillStyle = "#0a0c10";
